@@ -1,4 +1,5 @@
 var tabid;
+var cookieStoreId;
 var g_ck;
 var url;
 var instance;
@@ -13,6 +14,7 @@ var dtDataExplore;
 var dtSlashcommands;
 var objCustomCommands = {};
 var ipArr = [];
+var jsnNodes;
 
 var objSettings;
 var tablesloaded = false;
@@ -33,15 +35,40 @@ $.fn.dataTable.ext.errMode = 'none';
 document.addEventListener('DOMContentLoaded', function () {
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
         tabid = tabs[0].id;
-        var cookieStoreId = tabs[0].cookieStoreId || '';
+        cookieStoreId = tabs[0].cookieStoreId || '';
         urlFull = tabs[0].url;
         getBrowserVariables(tabid,cookieStoreId);
 
     });
 
-    if (typeof InstallTrigger !== 'undefined') $('input[type="color"]').attr('type','text') //bug in FireFox to use html5 color tag in popup
+     if(navigator.userAgent.match(/firefox/i)) $('input[type="color"]').attr('type','text') //bug in FireFox to use html5 color tag in popup
+
+    clearInvalidatedLocalStorageCache();
 
 });
+
+//clear all invalidated cached items like tablenames and nodes
+//each items has a accomanied item with a date string value, remove both if not the current day
+function clearInvalidatedLocalStorageCache(){
+    chrome.storage.local.get(null, function(items) {
+        let allKeys = Object.keys(items);
+        let dt = new Date().toDateString();
+        let arr = []
+        allKeys.forEach(key => {
+            if (key.endsWith('-date') && dt != items[key]){
+                arr.push(key.replace('-date',''));
+                 arr.push(key);
+            }
+    
+        })
+        chrome.storage.local.remove(arr, () =>{
+        let error = chrome.runtime.lastError;
+            if (error) {
+                console.error(error);
+            }
+        })
+    });
+}
 
 //Retrieve variables from browser tab, passing them back to popup
 function getBrowserVariables(tid, cStoreId, callback) {
@@ -85,13 +112,13 @@ function setRecordVariables(obj) {
 
     var xmllink = url + '/' + obj.myVars.NOWtargetTable + '.do?sys_id=' + obj.myVars.NOWsysId + '&sys_target=&XML';
     $('#btnviewxml').click(function () {
-        chrome.tabs.create({ "url": xmllink, "active": false });
+        tabCreate({ "url": xmllink, "active": false });
     }).prop('disabled', isNoRecord);
 
 
 
     $('#btnupdatesets').click(function () {
-        chrome.tabs.create({ "url": url + '/sys_update_set_list.do?sysparm_query=state%3Din%20progress', "active": false });
+        tabCreate({ "url": url + '/sys_update_set_list.do?sysparm_query=state%3Din%20progress', "active": false });
     });
 
 
@@ -142,9 +169,6 @@ function getNodes() {
 
 function setActiveNode(node) {
 
-    if (ipArr.length) //subsequent time when popup is open. Becose of cookie changes, avoid server call to stats.do
-        setActiveNodeInner(node)
-    else { //first time when popup is open
         fetch(url + '/stats.do')
         .then(response => response.text())
         .then(statsDo => { 
@@ -155,10 +179,21 @@ function setActiveNode(node) {
                 .replace('<br/>', '')
                 .replace('<br />', '')
                 .split('.');
-                setActiveNodeInner(node);
-        });
-    }
 
+            let nodeId = statsDo
+            .match(/Node ID: ([\s\S]*?)\<br\/>/g)[0]
+            .replace('Node ID: ', '')
+            .replace('<br/>', '');
+
+            let nodeName = statsDo
+            .match(/Connected to cluster node: ([\s\S]*?)\<br\/>/g)[0]
+            .replace('Connected to cluster node: ', '')
+            .replace('<br/>', '');
+
+            let realNode = {"nodeId" : nodeId, "nodeName" : nodeName };
+            
+            setActiveNodeInner(realNode);
+        });
 
     function setActiveNodeInner(node) {
         var nodeArr = node.nodeName.split(".");
@@ -184,27 +219,56 @@ function setActiveNode(node) {
                     // matches BIGipServerpool_<alphanumeric instance name>
                     return cookie.name.match(/^(BIGipServer[\w\d]+)$/);
                 });
-                if (!BIGipServerpoolCookie?.value?.endsWith('.0000')){
-                    document.querySelector('#nodemessage').innerText = `Switching nodes may not work on this instance.. (BIGipServerpool cookie complex encoding). Contact me to search for a solution. Debug info cookie: ${BIGipServerpoolCookie.name} : ${BIGipServerpoolCookie.value} `;
-                    document.querySelector('#nodemessage').classList.remove('hidden');
-                }
-                chrome.cookies.set({
-                    "name": BIGipServerpoolCookie.name,
-                    "url": new URL(url).origin,
-                    "secure": true,
-                    "httpOnly": true,
-                    "value": encodeBIGIP
-                }, s => {
+                if (!BIGipServerpoolCookie?.value?.endsWith('.0000')){ 
+                    //this is a test to allow node switching on ADCv2 migrated instances
+
+                    // chrome.cookies.remove({
+                    //     "name": BIGipServerpoolCookie.name,
+                    //     "url": new URL(url).origin
+
                     chrome.cookies.set({
-                        "name": "glide_user_route",
+                        "name": BIGipServerpoolCookie.name,
                         "url": new URL(url).origin,
                         "secure": true,
                         "httpOnly": true,
-                        "value": 'glide.' + node.nodeId
+                        "value": encodeBIGIP
                     }, s => {
-                        getActiveNode(jsnNodes);
+                        chrome.cookies.set({
+                            "name": "glide_user_route",
+                            "url": new URL(url).origin,
+                            "secure": true,
+                            "httpOnly": true,
+                            "value": 'glide.' + node.nodeId
+                        }, s => {
+                            getActiveNode(jsnNodes);
+                        });
                     });
-                });
+
+                    document.querySelector('#nodemessage').innerText = `This instance uses ADCv2 loadbalancing, node switching may not work or switch to a random node. Try a few times... `;
+                    document.querySelector('#nodemessage').classList.remove('hidden');
+                }
+                else {
+
+                    chrome.cookies.set({
+                        "name": BIGipServerpoolCookie.name,
+                        "url": new URL(url).origin,
+                        "secure": true,
+                        "httpOnly": true,
+                        "value": encodeBIGIP
+                    }, s => {
+                        chrome.cookies.set({
+                            "name": "glide_user_route",
+                            "url": new URL(url).origin,
+                            "secure": true,
+                            "httpOnly": true,
+                            "value": 'glide.' + node.nodeId
+                        }, s => {
+                            getActiveNode(jsnNodes);
+                        });
+                    });
+
+                }
+
             });
         });
     }
@@ -293,13 +357,6 @@ function setBrowserVariables(obj) {
         var dataset = document.querySelector('#slctdataset').value;
         getTables(dataset);
     });
-    $('#btnSendXplore').click(function () {
-        var script = $('#txtgrquery').val();
-        var win = chrome.tabs.create({ "url": url + "/snd_xplore.do", "active": !(event.ctrlKey || event.metaKey) }); //window.open('');
-        jQuery(win).bind('load', function () {
-            win.snd_xplore_editor.setValue(script);
-        });
-    });
 
     $('.snu-setting').change(function () {
         setSettings();
@@ -342,7 +399,7 @@ function setBrowserVariables(obj) {
 
     $('a.popuplinks').click(function () {
         event.preventDefault();
-        chrome.tabs.create({ "url": $(this).attr('href'), "active": !(event.ctrlKey || event.metaKey) });
+        tabCreate({ "url": $(this).attr('href'), "active": !(event.ctrlKey || event.metaKey) });
     });
 
     $('#slashcommands, #slashsswitches').on('dblclick',function(){
@@ -629,56 +686,50 @@ function setListUrl(listUrl, tableLabel, fields){
 function getGRQueryList(varName, template, templatelines, fullvarname) {
 
     chrome.tabs.sendMessage(tabid, {
-        method: "runFunction",
-        myVars: "getListV3Fields()"
-    }, function () {
+        method: "getVars",
+        myVars: "g_list.filter,g_list.tableName,g_list.sortBy,g_list.sortDir,g_list.rowsPerPage,g_list.fields"
+    }, function (response) {
+        var tableName = response.myVars.g_listtableName;
+        if (!tableName) { //dealing with a table that ends with _list, like sys_ui_list
+            getGRQueryForm(varName, template, templatelines, fullvarname);
+            return;
+        }
 
-        chrome.tabs.sendMessage(tabid, {
-            method: "getVars",
-            myVars: "g_list.filter,g_list.tableName,g_list.sortBy,g_list.sortDir,g_list.rowsPerPage,g_list.fields"
-        }, function (response) {
-            var tableName = response.myVars.g_listtableName;
-            if (typeof tableName == 'undefined'){ //dealing with a table that ends with _list, like sys_ui_list
-                getGRQueryForm(varName, template, templatelines, fullvarname);
-                return;
+        varName = varName || grVarName(tableName, fullvarname);
+        var encQuery = response.myVars.g_listfilter;
+        var orderBy = response.myVars.g_listsortBy;
+        var isDesc = (response.myVars.g_listsortDir == "DESC");
+        var fields = ('' + response.myVars.g_listfields).split(',');
+        var rowsPerPage = response.myVars.g_listrowsPerPage;
+        var queryStr = "var " + varName + " = new GlideRecord('" + tableName + "');\n";
+        queryStr += varName + ".addEncodedQuery(\"" + encQuery.replaceAll('"', '\\"') + "\");\n";
+        if (isDesc)
+            queryStr += varName + ".orderByDesc('" + orderBy + "');\n";
+        else
+            queryStr += varName + ".orderBy('" + orderBy + "');\n";
+        queryStr += varName + ".setLimit(" + rowsPerPage + ");\n";
+        queryStr += varName + ".query();\n";
+        queryStr += "while (" + varName + ".next()) {\n";
+        if (templatelines) {
+            queryStr += "    //" + varName + ".initialize();\n";
+        }
+        if (template) {
+            for (var i = 0; i < fields.length; i++) {
+                queryStr += "    " + template.replace(/\{0\}/g, varName).replace(/\{1\}/g, fields[i]) + "\n";
             }
+        } else
+            queryStr += "\n\n    //todo: code ;)\n\n";
+        if (templatelines) {
 
-            varName = varName || grVarName(tableName, fullvarname);
-            var encQuery = response.myVars.g_listfilter;
-            var orderBy = response.myVars.g_listsortBy;
-            var isDesc = (response.myVars.g_listsortDir == "DESC");
-            var fields = ('' + response.myVars.g_listfields).split(',');
-            var rowsPerPage = response.myVars.g_listrowsPerPage;
-            var queryStr = "var " + varName + " = new GlideRecord('" + tableName + "');\n";
-            queryStr += varName + ".addEncodedQuery(\"" + encQuery + "\");\n";
-            if (isDesc)
-                queryStr += varName + ".orderByDesc('" + orderBy + "');\n";
-            else
-                queryStr += varName + ".orderBy('" + orderBy + "');\n";
-            queryStr += varName + ".setLimit(" + rowsPerPage + ");\n";
-            queryStr += varName + ".query();\n";
-            queryStr += "while (" + varName + ".next()) {\n";
-            if (templatelines) {
-                queryStr += "    //" + varName + ".initialize();\n";
-            }
-            if (template) {
-                for (var i = 0; i < fields.length; i++) {
-                    queryStr += "    " + template.replace(/\{0\}/g, varName).replace(/\{1\}/g, fields[i]) + "\n";
-                }
-            } else
-                queryStr += "\n\n    //todo: code ;)\n\n";
-            if (templatelines) {
+            queryStr += "    //" + varName + ".autoSysFields(false);\n";
+            queryStr += "    //" + varName + ".setWorkflow(false);\n";
+            queryStr += "    //" + varName + ".update();\n";
+            queryStr += "    //" + varName + ".insert();\n";
+            queryStr += "    //" + varName + ".deleteRecord();\n";
+        }
+        queryStr += "}";
 
-                queryStr += "    //" + varName + ".autoSysFields(false);\n";
-                queryStr += "    //" + varName + ".setWorkflow(false);\n";
-                queryStr += "    //" + varName + ".update();\n";
-                queryStr += "    //" + varName + ".insert();\n";
-                queryStr += "    //" + varName + ".deleteRecord();\n";
-            }
-            queryStr += "}";
-
-            setGRQuery(queryStr);
-        });
+        setGRQuery(queryStr);
     });
 }
 
@@ -820,7 +871,7 @@ function setUserDetails(html) {
 function setDataTableUpdateSets(nme) {
 
     if (nme == 'error') {
-        $('#updatesets').hide().after('<br /><div class="alert alert-danger">Data can not be retrieved, are you Admin?</div>');
+        $('#updatesets').hide().after('<br /><div class="alert alert-danger">Data can not be retrieved, are you an Admin?</div>');
         $('#waitingupdatesets').hide();
         return false;
     }
@@ -867,7 +918,7 @@ function setDataTableUpdateSets(nme) {
 
     $('a.updatesetlist').click(function () {
         event.preventDefault();
-        chrome.tabs.create({ "url": $(this).attr('href'), "active": !(event.ctrlKey || event.metaKey) });
+        tabCreate({ "url": $(this).attr('href'), "active": !(event.ctrlKey || event.metaKey) });
     });
 
     $('a.setcurrent').click(function () {
@@ -883,7 +934,7 @@ function setDataTableUpdateSets(nme) {
 function setNodes(jsn) {
 
     if (typeof jsn == "undefined" || jsn == "error") {
-        $('#instancenodes').hide().after('<br /><div class="alert alert-danger">Nodes data can not be retrieved, are you Admin?</div>');
+        $('#instancenodes').hide().after('<br /><div class="alert alert-danger">Nodes data can not be retrieved, are you an Admin?</div>');
         $('#waitingnodes').hide();
         return false;
     }
@@ -941,7 +992,7 @@ function setDataTableNodes(nme, node) {
 function setDataTableUpdates(nme) {
 
     if (nme == 'error') {
-        $('#updts').hide().after('<br /><div class="alert alert-danger">Data can not be retrieved, are you Admin?</div>');
+        $('#updts').hide().after('<br /><div class="alert alert-danger">Data can not be retrieved, are you an Admin?</div>');
         $('#waitingupdates').hide();
         return false;
     }
@@ -982,7 +1033,7 @@ function setDataTableUpdates(nme) {
 
     $('a.updatetarget').click(function () {
         event.preventDefault();
-        chrome.tabs.create({ "url": $(this).attr('href'), "active": !(event.ctrlKey || event.metaKey) });
+        tabCreate({ "url": $(this).attr('href'), "active": !(event.ctrlKey || event.metaKey) });
     });
 
     $('#tbxupdates').keyup(function () {
@@ -1118,12 +1169,12 @@ function setDataTableTables(nme) {
             if (url.indexOf("syslog") > 1) {
                 url = url.replace(/sys_updated_on/g, 'sys_created_on'); //syslog tables have no updated columnn.
             }
-            chrome.tabs.create({ "url": url, "active": !(event.ctrlKey || event.metaKey) });
+            tabCreate({ "url": url, "active": !(event.ctrlKey || event.metaKey) });
         }).addClass('evented');
 
         $('a.tabletarget:not(.evented)').click(function () {
             event.preventDefault();
-            chrome.tabs.create({ "url": $(this).attr('href'), "active": !(event.ctrlKey || event.metaKey) });
+            tabCreate({ "url": $(this).attr('href'), "active": !(event.ctrlKey || event.metaKey) });
         }).addClass('evented');
     });
 
@@ -1320,8 +1371,13 @@ function getTableSysId(){ //extracted from inject.js snuResolveVariables, todo:m
         sysId : ''
     }
     const loc = new URL(urlFull);
-    console.log(loc);
-    if (loc.pathname == "/$flow-designer.do"){ //flowdesigner
+    //console.log(loc);
+    if (loc.pathname == "/sys_report_template.do"){ //report
+        let searchParams = new URLSearchParams(loc.search);
+        ts.tableName = 'sys_report';
+        ts.sysId =(searchParams.get('jvar_report_id') || '').replace(/[^a-f0-9-_]/g, '');
+    }
+    else if (loc.pathname == "/$flow-designer.do"){ //flowdesigner
         if (loc.hash.startsWith("#/flow-designer/")){
             ts.tableName = "sys_hub_flow";
             ts.sysId = loc.hash.replace("#/flow-designer/","").substring(0,32);
@@ -1399,6 +1455,7 @@ function getExploreData() {
                     "type": "TABLE"
                 };
                 propObj.display_value = "<a class='referencelink' href='" + url + "/" + tableName + ".do?sys_id=" + sysId + "' target='_blank'>" + tableName + " / " + sysId + "</a>";
+                propObj.link = url + "/" + tableName + ".do?sys_id=" + sysId;
                 propObj.value = tableName + " / " + sysId;
                 dataExplore.push(propObj);
 
@@ -1445,6 +1502,11 @@ function setDataExplore(nme) {
     Object.entries(nme).forEach( // add check of empty fields to be able to filter out
         ([key, obj]) => {
             nme[key].hasdata = (obj.value || obj.display_value) ? "hasdata" : "";
+            if (!nme[key].link ) {
+                let escpd = escape(nme[key].display_value);
+                if (nme[key].display_value != escpd)
+                    nme[key].display_value = '<pre style="white-space: pre-wrap; max-width:300px;"><code>' + escpd + '</code></pre>'
+            }
         }
     );
     
@@ -1511,7 +1573,7 @@ function setDataExplore(nme) {
 
     $('a.referencelink').click(function () {
         event.preventDefault();
-        chrome.tabs.create({ "url": $(this).attr('href'), "active": !(event.ctrlKey || event.metaKey) });
+        tabCreate({ "url": $(this).attr('href'), "active": !(event.ctrlKey || event.metaKey) });
     });
 
     $('#waitingdataexplore').hide();
@@ -1613,40 +1675,44 @@ function getFromSyncStorageGlobal(theName, callback) {
 }
 
 
-//Function to query Servicenow API
+// Function to query Servicenow API
+// To work with Firefox containers, this is routed via the content page Issue #415
 function snuFetch(token, url, post, callback) {
-    var hdrs = {
-        'Cache-Control': 'no-cache',
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-    };
-    if (token) //only for instances with high security plugin enabled
-        hdrs['X-UserToken'] = token; 
-
-    var requestInfo = {
-        method : 'get',
-        headers : hdrs
+    let options = {
+        token : token,
+        url : url,
+        post : post
     }
-
-    if (post){
-        requestInfo.method = 'PUT';
-        requestInfo.body = post;
-    }
-
-    fetch(url, requestInfo)
-    .then(response => response.json())
-    .then(data => { 
-        callback(data);
+    chrome.tabs.sendMessage(tabid, { method: "snuFetch", options: options }, function (resp) {
+        callback(resp);
     });
 
+}
+
+// Create a new browser tab via the content page
+// To work with Firefox containers, this is adding the cookiestoreid the content page Issue #415
+function tabCreate(createObj) {
+    if (cookieStoreId) createObj.cookieStoreId = cookieStoreId;
+    chrome.tabs.create(createObj);
 }
 
 
 function openGrInBgScript(active) {
     let content = encodeURIComponent(document.getElementById('txtgrquery').value);
-    var createObj = {
+    let createObj = {
         'url': url + "/sys.scripts.do?content=" + content,
         'active': active
     }
+    if (cookieStoreId) createObj.cookieStoreId = cookieStoreId;
     chrome.tabs.create(createObj);
 }
+
+function escape(htmlStr) {
+    if (!htmlStr) return '';
+    return htmlStr.replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");        
+ 
+ }

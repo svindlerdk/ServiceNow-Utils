@@ -1,5 +1,192 @@
 # CHANGELOG.md
 
+## 7.1.4.4 (2023-10-03)
+Fixes / changes:
+ - Prevent showing the Monaco editor context menu, when there is a ServiceNow context menu available
+ - Fix keyboardshortcut for Monaco function: Toggle Monaco context Menu (ALT-SHIFT-M)
+ - Fix keyboardshortcut for Monaco function: Toggle Word wrap (ALT-SHIFT-W)
+
+## 7.1.4.1 (2023-09-25 FF OnPrem only)
+Fixes / changes:
+ - Modify the publish.sh build script (Issue #437)
+
+## 7.1.4.0 (2023-09-23)
+Fixes / changes:
+ - Support javascript: in Next Experience slash commands
+ - Try to deduplicate tsWorker.js so it can be embedded in FireFox version (Issue #437 and Issue #3915 in Mozilla Add-ons linter and Monaco Editor Issue #4184)
+ - CSS adjustmenst slash command window (dark mode)
+ - Setting the default for show pickers in Next UI to true (Requested by Jorn)
+ - Remove commented function snuFetch from inject.js
+ - Upgrade Monaco editor to 43.0
+ - Upgrade jQuery to 3.7.1
+ - Upgrade Bootstrap to 5.3.2
+ - Upgrade DOMPurify to 3.0.5
+
+## 7.1.3.6 (2023-09-15)
+Fixes / changes:
+ - Add optional chaning to a technical names function
+ - Disable adding links to lists from last update when first column. (already a reference link in this case) (Issue #435)
+
+## 7.1.3.4 (2023-09-07)
+Fixes / changes:
+ - Expand the fucntion to add link to syslog table to sys_update_xml name field
+ - Renamed function snuAddErrorLogScriptLinks to snuAddListLinks for this reason
+ - Updated links that open XML in monaco editor so it shows XML attributes like displayvalue
+
+## 7.1.3.3 (2023-09-06)
+Fixes / changes:
+ - Rewrite multiple function in scriptsync.js to use fetch instead of XMLHttpRequest
+ - Refactor some code in inject.js 
+ - Diff viewer (/diff1 /diff2) now show display values in the XML
+- Show navigator items in slash commands when < 3 slash commands
+
+## 7.1.3.0 (2023-09-04)
+Fixes / changes:
+ - Embed /bgc script inside if statement for the .get function
+ - Add a link to the workflow editor from a workflow context
+ - Improve dispatching slashcommand in Next Experience (adding context to payload)
+ - Prevent showing duplicates in /sa (Switch Application) slash command
+ - Rewrite multiple function in inject.js to use fetch instead of XMLHttpRequest
+ - Remove no longer used snuGetNav and snuShowSlashCommand functions
+ - Rename snuLoadXMLDoc function to snuFetchData in inject.js
+ - Removing some console.log statements in inject.js
+ - Update Utah slash commands to Vancouver
+ - Add link to linkedin post in popup info page
+
+
+## 7.1.2.0 (2023-08-22)
+Features:
+ - Add swapbutton and improvements to diff editor (Issue #429 / PR #430 PromoFaux)
+Fixes / changes:
+ - Improve finding variable names for /tn function in formatter on forms
+
+
+## 7.1.1.3 (2023-08-15)
+Fixes / changes:
+ - Remove scriptsync name clean regex (scriptsync issue #87)
+
+## 7.1.1.2 (2023-08-14)
+Fixes / changes:
+ - Resolve reports for tablename and sysid on sys_report_template.do (enables View Data and for example /list command)
+ - Add the link: [SN Utils] Switch to SCOPENAME application click here to cases without sys_scope on the form, when on a page in different scope.
+
+## 7.1.1.0 (2023-08-11)
+Features:
+ - Add in a context menu item to swap panes in the code diff viewer (PR #425)
+Fixes / changes:
+ - Remove beta warning from scriptsync actions sync
+ - Adding scope sysid to payload on scriptsync of Action scripts
+ - Change the /debug slash command to a scripted command, so it works more consitent.
+
+
+## 7.1.0.0 (2023-08-02)
+Features:
+ - Clicking the pillar | on a form field when Technical Names is active, will open the dictionary in advanced view. A hover over the pillar shows a ! to give users a clue. Does not work for non admin and dotwalked fields. Besides it does not work when CMD or CTRL is pressed. (This still builds a filter)
+Fixes / changes:
+ - Changes VS Code button color to --now-button--bare_primary--color
+ 
+
+## 7.0.9.0 (2023-08-02)
+Fixes / changes:
+ - Change collection link on sys_db_object record link to always open advanced view
+ - Allow slash command that have a encodedquery as argument to work with additional switches
+ - Add a symbol to switch text to give an indication what it does:  
+    - ∀ add a filter condition
+    - ↧ Add list sorting 
+    - ↝ Add a sysparm
+    - ➚ Open page in new tab
+ - Fix for showing setVisible(false) fields with the /uh command #422 
+
+## 7.0.8.6 (2023-08-01)
+Fixes / changes:
+ - sn-scriptsync and Monaco icons now show on new records, and show a message when clicked.
+ - Fix for direct calling a slash command switch that opens a link, such as /-ra to open the REST Api explorer from a record.
+
+## 7.0.8.4 (2023-07-29)
+Fixes / changes:
+ - Fix for display value in View Data (Issue: #421)
+
+## 7.0.8.3 (2023-07-28)
+Remark: For Chrome this version is published as 7.0.8.1
+Fixes / changes:
+ - Escape display value in View Data (Issue: #421)
+ - Added function to scriptsync page to set banner message from sn-scriptsync
+
+## 7.0.8.1 (2023-07-26 Firefox only)
+Fixes / changes:
+ - Workaround for issue #420 releated to Firefox containers compatability
+ - Added wildcard in scriptsync condition
+
+## 7.0.8.0 (2023-07-19)
+Fixes / changes:
+ - Upgrade Monaco editor to version 0.40.0
+ - Remove List v3 support
+ - Enabled bracketPairColorization in BG Script and SN Utils codeeditor
+ - Disabled minimap in BG Script
+ - Mark not started BG script with title: ⚪ BG script not started
+
+## 7.0.7.0 (2023-07-18)
+Fixes / changes:
+ - Add link to switch to scope of current record (Discussion #416)
+ - Additional fix for opening links from popup in correct Firefox container.
+
+## 7.0.6.0 (2023-07-18)
+Fixes / changes:
+ - Changing snuFetch in popup.js to fix support for Firefox containers, this is routed via the content page (Issue #415)
+ (Work in Progress)
+ - Applying css variable to picker hover state
+ - Heads up message on sriptsync page regarding upcoming changes
+
+## 7.0.5.0 (2023-06-22)
+Features:
+  - Adding context menu items: Open in BG Script, Code Search and Google search to the Monaco editor context menu.
+Fixes / changes:
+ - Fix genertaing GlideRecord template for tables ending with _list (Issue #407)
+ - Better escaping in GlideRecord template generation (Issue #409)
+
+## 7.0.4.0 (2023-06-21)
+Fixes / changes:
+ - Improved switching of app / updateset, clearing relevant cache, to show the new value after pge reload
+
+## 7.0.3.1 (2023-06-16) Firefox only
+Fixes / changes:
+ - Replace InstallTrigger check to useragent check to detect Firefox #406
+
+## 7.0.3.0 (2023-06-12)
+Fixes / changes:
+ - Automate clearing local cache for tables in the popup when data expired  via fucntion clearInvalidatedLocalStorageCache()
+ - Added xmlstats.do to manifest for Firefox so that it renders correct. (Discussion #403)
+ - Assign global g_form when dump variables is clicked in workspace
+ - Changes to nodeswitching, detecting ADCv2 load balancing (will try to find a way to support node switching in this case)
+
+## 7.0.2.0 (2023-05-26)
+Features:
+  - Monaco editor gets the setting Wordwrap true and contextmenu true applied on page load. Settings can be configured via a JSON string in the settings tab for Monaco editor.
+  - Added shortcuts to monaco editor to toggle wordwrap (ALT-SHIFT-W) and contextmenu (ALT-SHIFT-M)
+
+Fixes / changes:
+ - Fix slash commands not working when no tablename or syId can be resolved.
+ - Added grey border around Slash command popup in dark mode.
+
+
+## 7.0.0.3 (2023-05-12)
+Fixes / changes:
+ - Updated tokyo slash commands (/docs and /dev) to utah
+ - Fixed / added links in info tab of popup
+ - Fixed slash comand problem where javascript: commands did not work when not outside iframe (These may not work in Firefox anyway) (Issue: #395)
+
+ 
+## 7.0.0.0 (2023-05-06)
+Fixes / changes:
+ - 🎉 7 year annniversary => version bump to 7.0.0.0
+ - Fix where the cancel transaction on BG script page did not work.
+ - Show text and value as title for List selector options, after /tn is activated, so that whole text can be viewed when text is wider then the select
+ - List selectors (slushbucket) search function is now case insensitive
+ - Optimized List selectors (slushbucket) search function (Details: https://youtu.be/x39p9fR2hM4)
+ - Updates to PRIVACY.md
+ - Added LinkedIn post links and link to edge on info page of popup
+ - Update the DoubleClick to pin function for next experience menus
+
 ## 6.4.1.1 (2023-04-18 published for Safari only)
 Features:
   - Update purify.min.js to 3.0.2 and removed redundant copy in root folder
@@ -7,7 +194,6 @@ Features:
 ## 6.4.1.0 (2023-04-13)
 Features:
   - Viewdata, new page with record info similar to the viedata tab in the popup, can be opened via slashcommand /vd
-
 
 Fixes / changes:
  - Renamed Slash command related functions ie snuShowSlashCommand to snuSlashCommandShow
